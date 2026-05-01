@@ -63,19 +63,23 @@ export function MonoVerseApp() {
 
     socket.on('session:accepted', (payload: { sessionId: string; playerId: string; roomCode: string }) => {
       setSession(payload);
+      setError(undefined);
       window.localStorage.setItem('monoverse.sessionId', payload.sessionId);
       window.localStorage.setItem('monoverse.roomCode', payload.roomCode);
     });
 
     socket.on('room:update', (nextRoom) => {
+      setError(undefined);
       setRoom(nextRoom);
     });
 
     socket.on('game:snapshot', (payload: { state: PublicGameState; availableActions: string[] }) => {
+      setError(undefined);
       setSnapshot(payload.state, payload.availableActions);
     });
 
     socket.on('game:update', (payload: { delta: PublicGameDelta; availableActions: string[] }) => {
+      setError(undefined);
       mergeDelta(payload.delta, payload.availableActions);
     });
 
