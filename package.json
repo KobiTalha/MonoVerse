@@ -1,0 +1,16 @@
+{
+  "name": "monoverse",
+  "version": "0.1.0",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev:web": "npm run dev --workspace @monoverse/web",
+    "dev:server": "npm run dev --workspace @monoverse/server",
+    "build": "npm run build --workspace @monoverse/game-engine && npm run build --workspace @monoverse/server && npm run build --workspace @monoverse/web",
+    "test": "npm run test --workspace @monoverse/game-engine && npm run test --workspace @monoverse/server",
+    "lint": "npm run lint --workspace @monoverse/web"
+  }
+}
