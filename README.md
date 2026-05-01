@@ -1,60 +1,163 @@
+<p align="center">
+  <img src="https://img.shields.io/badge/TypeScript-3178C6?style=for-the-badge&logo=typescript&logoColor=white" alt="TypeScript" />
+  <img src="https://img.shields.io/badge/Next.js_16-000000?style=for-the-badge&logo=next.js&logoColor=white" alt="Next.js" />
+  <img src="https://img.shields.io/badge/React_19-61DAFB?style=for-the-badge&logo=react&logoColor=black" alt="React" />
+  <img src="https://img.shields.io/badge/Socket.io-010101?style=for-the-badge&logo=socket.io&logoColor=white" alt="Socket.io" />
+  <img src="https://img.shields.io/badge/Vercel-000000?style=for-the-badge&logo=vercel&logoColor=white" alt="Vercel" />
+</p>
+
 # MonoVerse
 
-MonoVerse is a premium, real-time, Monopoly-inspired multiplayer platform built as a production-style monorepo. It combines a deterministic shared game engine, a server-authoritative Socket.io backend, and a polished Next.js client tuned for modern multiplayer play.
+A real-time, multiplayer board game platform inspired by Monopoly — built as a production-grade TypeScript monorepo. MonoVerse pairs a deterministic, shared game engine with a server-authoritative WebSocket backend and a responsive Next.js 16 client.
 
-## Features
+---
 
-- Deterministic game engine with dice, turns, rent, jail, cards, taxes, and bankruptcy
-- Server-authoritative multiplayer with room codes, lobby flow, ready states, AI seats, and reconnect support
-- Premium dark-mode game UI with 11x11 grid board, animated tile-by-tile tokens, dice roll polish, and responsive layout
-- Shared workspace architecture for frontend, backend, engine, and reusable UI primitives
-- Unit coverage for core engine rules and room lifecycle behavior
+## Table of Contents
 
-## UI/UX System
+- [Overview](#overview)
+- [Architecture](#architecture)
+- [Tech Stack](#tech-stack)
+- [Key Features](#key-features)
+- [Project Structure](#project-structure)
+- [Getting Started](#getting-started)
+- [Deployment](#deployment)
+- [Testing](#testing)
+- [Game Rules](#game-rules)
+- [Design Decisions](#design-decisions)
+- [License](#license)
 
-- 11x11 CSS Grid board with active tile and active player highlights
-- Tile-by-tile token movement (~300-500ms per step) with eased transitions
-- Dice roll animation with settle behavior and input lockout during roll
-- Strict palette, 8px spacing system, and consistent micro-interactions
+---
+
+## Overview
+
+MonoVerse is structured as a monorepo containing four workspaces:
+
+| Workspace | Path | Role |
+|---|---|---|
+| **Web Client** | `apps/web` | Next.js 16 App Router frontend with Zustand state and Framer Motion animations |
+| **Game Server** | `apps/server` | Express + Socket.io realtime server (server-authoritative) |
+| **Game Engine** | `packages/game-engine` | Pure, deterministic gameplay reducer — shared between client and server |
+| **UI Primitives** | `packages/ui` | Reusable design-system components (`AccentButton`, `Surface`, `StatusPill`, etc.) |
+
+The engine is completely UI-agnostic and can drive bots, tests, or alternative clients without modification.
+
+---
 
 ## Architecture
 
-```text
-monoverse/
-  apps/
-    web/           Next.js App Router client
-    server/        Express + Socket.io realtime server
-  packages/
-    game-engine/   Pure deterministic gameplay logic
-    ui/            Reusable UI primitives
+```
+┌─────────────────────────────────────────────┐
+│                Browser Client               │
+│  Next.js 16 · Zustand · Framer Motion       │
+│                                             │
+│  ┌─────────────────────────────────────┐    │
+│  │        Socket.io Transport          │    │
+│  └────────────────┬────────────────────┘    │
+└───────────────────┼─────────────────────────┘
+                    │ WebSocket
+┌───────────────────┼─────────────────────────┐
+│                   ▼                         │
+│          MonoVerse Server                   │
+│  Express · Socket.io · Session Manager      │
+│                                             │
+│  ├── Lobby / Room Authority                 │
+│  ├── Reconnect Session Handling             │
+│  ├── Dice Generation + Action Validation    │
+│  └── Shared Game Engine Reducer             │
+│        └── State Snapshot / Delta Sync      │
+└─────────────────────────────────────────────┘
 ```
 
-```text
-Browser Client
-  └─ Socket.io client
-       └─ MonoVerse Server
-            ├─ Lobby / room authority
-            ├─ Reconnect session handling
-            ├─ Dice generation + action validation
-            └─ Shared game engine reducer
-                  └─ Public state snapshot / delta sync
-```
+All gameplay mutations flow through the server. The client receives either full state snapshots or incremental deltas — never computing game logic independently. This architecture prevents cheating and ensures consistent state across all connected players.
+
+---
 
 ## Tech Stack
 
-- Frontend: `Next.js`, `React`, `Zustand`, `Framer Motion`
-- Backend: `Node.js`, `Express`, `Socket.io`
-- Shared logic: `TypeScript`, `Vitest`
-- Deployment: `Vercel` for `apps/web`, `Render` or `Railway` for `apps/server`
+| Layer | Technology |
+|---|---|
+| Frontend | Next.js 16, React 19, Zustand, Framer Motion |
+| Backend | Node.js, Express 5, Socket.io 4 |
+| Shared Logic | TypeScript 5.9, Pure functional reducer |
+| Testing | Vitest |
+| Deployment | Vercel (web), Render / Railway (server) |
+| Monorepo | npm workspaces |
 
-## Screenshots
+---
 
-- `docs/screenshots/lobby.png` — placeholder
-- `docs/screenshots/game-board.png` — placeholder
-- `docs/screenshots/dice-roll.png` — placeholder
-- `docs/screenshots/mobile-view.png` — placeholder
+## Key Features
 
-## Local Setup
+### Multiplayer
+- Room-based matchmaking with shareable room codes
+- Lobby system with ready states and host controls
+- AI bot seats for solo or partial lobbies
+- Automatic session persistence and reconnect support
+
+### Game Engine
+- Deterministic reducer pattern — identical inputs always produce identical outputs
+- Full Monopoly rule coverage: dice, turns, rent, jail, cards, taxes, bankruptcy
+- Group-based rent multipliers and utility scaling from dice totals
+- Chance and Community card decks with shuffle seeding
+
+### Frontend
+- 11×11 CSS Grid board with active tile and player highlights
+- Tile-by-tile token animation (~300–500ms per step) with eased transitions
+- Dice roll animation with settle behavior and input lockout
+- Server-synced action panel — only valid turn actions are enabled
+- Dark-mode palette with 8px spacing system and micro-interactions
+- Responsive layout for desktop and mobile viewports
+
+---
+
+## Project Structure
+
+```
+monoverse/
+├── apps/
+│   ├── web/                    # Next.js 16 App Router client
+│   │   ├── src/
+│   │   │   ├── app/            # Root layout, page, global styles
+│   │   │   ├── components/     # Game board, dice display, player roster
+│   │   │   ├── lib/            # Board layout mapping, type contracts
+│   │   │   └── store/          # Zustand state management
+│   │   ├── next.config.mjs
+│   │   └── package.json
+│   │
+│   └── server/                 # Express + Socket.io server
+│       ├── src/                # Server entry, room manager, socket handlers
+│       ├── tests/              # Server integration tests
+│       ├── Dockerfile
+│       └── package.json
+│
+├── packages/
+│   ├── game-engine/            # Pure deterministic game logic
+│   │   ├── src/
+│   │   │   ├── index.ts        # Core reducer, state serialization
+│   │   │   ├── types.ts        # Game state type definitions
+│   │   │   ├── board.ts        # Board tile definitions and constants
+│   │   │   ├── cards.ts        # Chance and Community card decks
+│   │   │   ├── ai.ts           # Bot decision logic
+│   │   │   └── utils.ts        # Shuffle, ID generation utilities
+│   │   └── tests/              # Engine unit tests
+│   │
+│   └── ui/                     # Shared UI primitive components
+│       └── src/
+│           └── index.tsx        # AccentButton, GhostButton, Surface, etc.
+│
+├── vercel.json                 # Vercel deployment configuration
+├── render.yaml                 # Render deployment blueprint
+├── tsconfig.base.json          # Shared TypeScript configuration
+└── package.json                # Root workspace configuration
+```
+
+---
+
+## Getting Started
+
+### Prerequisites
+
+- **Node.js** 20.x or later
+- **npm** 10.x or later
 
 ### 1. Install dependencies
 
@@ -64,57 +167,74 @@ npm install
 
 ### 2. Configure environment variables
 
-Copy:
+```bash
+# Web client
+cp apps/web/.env.example apps/web/.env.local
 
-- `apps/web/.env.example` → `apps/web/.env.local`
-- `apps/server/.env.example` → `apps/server/.env`
+# Game server
+cp apps/server/.env.example apps/server/.env
+```
 
-### 3. Run the server
+| Variable | Location | Default |
+|---|---|---|
+| `NEXT_PUBLIC_SERVER_URL` | `apps/web/.env.local` | `http://localhost:4001` |
+| `PORT` | `apps/server/.env` | `4001` |
+| `CLIENT_ORIGIN` | `apps/server/.env` | `http://localhost:3000` |
+| `ROOM_CAPACITY` | `apps/server/.env` | `4` |
+
+### 3. Start the game server
 
 ```bash
 npm run dev:server
 ```
 
-### 4. Run the web app
+### 4. Start the web client
 
 ```bash
 npm run dev:web
 ```
 
-Frontend runs on `http://localhost:3000` and the websocket server runs on `http://localhost:4001`.
+The client runs on `http://localhost:3000` and connects to the WebSocket server on `http://localhost:4001`.
 
-## Game Rules Included
-
-- Turn-based dice flow with doubles and extra turns
-- Property acquisition and group-based rent multipliers
-- Utility rent scaling from dice totals
-- Jail lockup, bail, and third-roll release handling
-- Chance and community-style card effects
-- Bankruptcy detection and winner resolution
+---
 
 ## Deployment
 
-### Frontend on Vercel
+### Frontend → Vercel
 
-1. Import the repository into Vercel.
-2. Set the root directory to `apps/web`.
-3. Add:
-   - `NEXT_PUBLIC_SERVER_URL=https://your-server-domain`
+The repository includes a `vercel.json` that handles the monorepo build pipeline:
+
+1. Import the repository into [Vercel](https://vercel.com).
+2. The root directory should remain `/` (Vercel will use the config from `vercel.json`).
+3. Add the environment variable:
+   ```
+   NEXT_PUBLIC_SERVER_URL=https://your-server-domain.com
+   ```
 4. Deploy.
 
-### Backend on Render
+Alternatively, deploy via the Vercel CLI:
 
-1. Create a new web service from the repository.
-2. Use `apps/server/Dockerfile`.
-3. Set:
-   - `PORT=4001`
-   - `CLIENT_ORIGIN=https://your-vercel-domain`
-   - `ROOM_CAPACITY=4`
-4. Deploy and copy the public URL into Vercel.
+```bash
+npx vercel --prod
+```
 
-### Backend on Railway
+### Backend → Render
 
-Use the same environment variables and deploy `apps/server`. Railway works well with the Dockerfile or direct Node build commands.
+1. Create a new **Web Service** from the repository.
+2. Set the Dockerfile path to `apps/server/Dockerfile`.
+3. Configure environment variables:
+   ```
+   PORT=4001
+   CLIENT_ORIGIN=https://your-vercel-domain.vercel.app
+   ROOM_CAPACITY=4
+   ```
+4. Deploy and copy the resulting URL into your Vercel project's `NEXT_PUBLIC_SERVER_URL`.
+
+### Backend → Railway
+
+Use the same environment variables. Railway supports both the included Dockerfile and direct Node.js builds from `apps/server`.
+
+---
 
 ## Testing
 
@@ -122,39 +242,38 @@ Use the same environment variables and deploy `apps/server`. Railway works well 
 npm run test
 ```
 
-Current automated coverage focuses on:
+Test coverage includes:
 
-- engine purchase and rent logic
-- jail handling
-- bankruptcy resolution
-- room start flow
-- reconnect behavior
+- **Engine**: Property purchase and rent calculations, jail handling (doubles escape, third-roll bail, voluntary bail), bankruptcy resolution and winner detection
+- **Server**: Room lifecycle (create, join, ready, start), reconnect session restoration, action validation and error handling
 
-## Git Workflow
+---
 
-Initialize and create clean milestone commits:
+## Game Rules
 
-```bash
-git init
-git add .
-git commit -m "chore: initialize MonoVerse project"
-```
+| Mechanic | Behavior |
+|---|---|
+| Dice | Two six-sided dice per roll. Doubles grant an extra turn. Three consecutive doubles send the player to jail. |
+| Properties | Unowned tiles can be purchased on landing. Owning a full color group doubles rent. |
+| Utilities | Rent scales from the dice total (× 6 multiplier). |
+| Jail | Entered via tile, card, or triple doubles. Exit by rolling doubles (up to 3 attempts), paying bail, or using a release card. |
+| Cards | Chance and Community decks with money, movement, jail, and repair effects. |
+| Taxes | Fixed-amount charges that deposit into the Free Parking pot. |
+| Free Parking | Collects accumulated tax and penalty funds. |
+| Bankruptcy | Triggered when a player's cash drops below zero. Assets transfer to the creditor (if any). Last player standing wins. |
 
-Recommended progression:
+---
 
-```bash
-feat: setup Next.js frontend structure
-feat: implement core game engine module
-feat: add WebSocket multiplayer system
-feat: implement lobby and room system
-feat: add dice roll and turn logic
-feat: build game board UI
-feat: add animations and polish
-fix: handle multiplayer sync edge cases
-```
+## Design Decisions
 
-## Notes
+- **Server authority**: All game mutations happen server-side to prevent client-side cheating. The client is a rendering layer only.
+- **Deterministic reducer**: The game engine is a pure function — `(previousState, action) → nextState`. This enables replay, testing, and future AI training.
+- **Session persistence**: `sessionId` and `roomCode` are stored in `localStorage`, enabling automatic reconnection after disconnects or page refreshes.
+- **Delta sync**: After the initial snapshot, the server sends minimal deltas instead of full state objects to reduce bandwidth.
+- **Monorepo with npm workspaces**: Shared code (engine, UI primitives) lives in `packages/` and is consumed by both `apps/web` and `apps/server` with zero duplication.
 
-- The server is authoritative for gameplay actions to reduce cheating risk.
-- The client stores `sessionId` and `roomCode` locally to support reconnects.
-- The shared engine is UI-agnostic and can power bots, tests, or future native clients.
+---
+
+## License
+
+This project is provided for educational and portfolio purposes.

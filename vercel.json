@@ -1,0 +1,6 @@
+{
+  "installCommand": "npm install --no-audit --no-fund",
+  "buildCommand": "npm run build --workspace @monoverse/game-engine && cd apps/web && npm run build",
+  "outputDirectory": "apps/web/.next",
+  "framework": "nextjs"
+}
