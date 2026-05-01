@@ -1,6 +1,7 @@
 'use client';
 
 import { motion } from 'framer-motion';
+import { useEffect, useMemo, useState } from 'react';
 
 function buildPips(value: number) {
   const map: Record<number, number[]> = {
@@ -15,18 +16,62 @@ function buildPips(value: number) {
   return map[value] ?? [];
 }
 
-export function DiceDisplay({ roll }: { roll?: [number, number] }) {
-  const values = roll ?? [1, 1];
+function randomDie() {
+  return (Math.floor(Math.random() * 6) + 1) as 1 | 2 | 3 | 4 | 5 | 6;
+}
+
+export function DiceDisplay({
+  roll,
+  isRolling
+}: {
+  roll?: [number, number];
+  isRolling?: boolean;
+}) {
+  const finalRoll = useMemo<[number, number]>(() => roll ?? [1, 1], [roll]);
+  const [displayValues, setDisplayValues] = useState<[number, number]>(finalRoll);
+
+  useEffect(() => {
+    if (!isRolling) {
+      setDisplayValues(finalRoll);
+      return;
+    }
+
+    setDisplayValues([randomDie(), randomDie()]);
+    const interval = window.setInterval(() => {
+      setDisplayValues([randomDie(), randomDie()]);
+    }, 92);
+
+    return () => {
+      window.clearInterval(interval);
+    };
+  }, [finalRoll, isRolling]);
 
   return (
-    <div className="dice-pair">
-      {values.map((value, index) => (
+    <div className={`dice-pair ${isRolling ? 'dice-pair-rolling' : ''}`}>
+      {displayValues.map((value, index) => (
         <motion.div
-          key={`${value}-${index}-${roll?.join('-') ?? 'idle'}`}
+          key={`${index}-${isRolling ? 'rolling' : finalRoll.join('-')}`}
           className="dice-face"
-          initial={{ rotate: -180, scale: 0.82, opacity: 0.5 }}
-          animate={{ rotate: 0, scale: 1, opacity: 1 }}
-          transition={{ duration: 0.5, ease: 'easeOut', delay: index * 0.08 }}
+          initial={false}
+          animate={
+            isRolling
+              ? {
+                  rotate: [0, index === 0 ? -18 : 18, 0],
+                  scale: [1, 1.06, 1],
+                  y: [0, -4, 0]
+                }
+              : {
+                  rotate: 0,
+                  scale: 1,
+                  y: 0
+                }
+          }
+          transition={{
+            duration: isRolling ? 0.24 : 0.32,
+            repeat: isRolling ? Number.POSITIVE_INFINITY : 0,
+            ease: 'easeInOut',
+            delay: index * 0.03
+          }}
         >
           <div className="dice-grid">
             {Array.from({ length: 9 }, (_, pipIndex) => (
@@ -41,4 +86,3 @@ export function DiceDisplay({ roll }: { roll?: [number, number] }) {
     </div>
   );
 }
-

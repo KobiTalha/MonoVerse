@@ -6,9 +6,16 @@ MonoVerse is a premium, real-time, Monopoly-inspired multiplayer platform built 
 
 - Deterministic game engine with dice, turns, rent, jail, cards, taxes, and bankruptcy
 - Server-authoritative multiplayer with room codes, lobby flow, ready states, AI seats, and reconnect support
-- Premium dark-mode game UI with animated board tokens, dice, live event feed, and responsive layout
+- Premium dark-mode game UI with 11x11 grid board, animated tile-by-tile tokens, dice roll polish, and responsive layout
 - Shared workspace architecture for frontend, backend, engine, and reusable UI primitives
 - Unit coverage for core engine rules and room lifecycle behavior
+
+## UI/UX System
+
+- 11x11 CSS Grid board with active tile and active player highlights
+- Tile-by-tile token movement (~300-500ms per step) with eased transitions
+- Dice roll animation with settle behavior and input lockout during roll
+- Strict palette, 8px spacing system, and consistent micro-interactions
 
 ## Architecture
 
@@ -44,6 +51,7 @@ Browser Client
 
 - `docs/screenshots/lobby.png` — placeholder
 - `docs/screenshots/game-board.png` — placeholder
+- `docs/screenshots/dice-roll.png` — placeholder
 - `docs/screenshots/mobile-view.png` — placeholder
 
 ## Local Setup

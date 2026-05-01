@@ -7,17 +7,22 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { io, type Socket } from 'socket.io-client';
 
 import type { PublicGameDelta } from '../lib/contracts';
+import { useMonoVerseStore } from '../store/monoverse-store';
 import { GameBoard } from './game-board';
 import { PlayerRoster } from './player-roster';
-import { useMonoVerseStore } from '../store/monoverse-store';
 
 const SERVER_URL = process.env.NEXT_PUBLIC_SERVER_URL ?? 'http://localhost:4001';
 
 export function MonoVerseApp() {
   const socketRef = useRef<Socket | null>(null);
+  const rollStartedAtRef = useRef<number | null>(null);
+  const rollSettleTimeoutRef = useRef<number | null>(null);
+  const previousRollRef = useRef<string | undefined>(undefined);
   const [name, setName] = useState('Talha');
   const [token, setToken] = useState('Comet');
   const [joinCode, setJoinCode] = useState('');
+  const [isRolling, setIsRolling] = useState(false);
+  const [isBusy, setIsBusy] = useState(false);
 
   const {
     connection,
@@ -59,6 +64,8 @@ export function MonoVerseApp() {
 
     socket.on('disconnect', () => {
       setConnection('offline');
+      setIsBusy(false);
+      setIsRolling(false);
     });
 
     socket.on('session:accepted', (payload: { sessionId: string; playerId: string; roomCode: string }) => {
@@ -76,22 +83,60 @@ export function MonoVerseApp() {
     socket.on('game:snapshot', (payload: { state: PublicGameState; availableActions: string[] }) => {
       setError(undefined);
       setSnapshot(payload.state, payload.availableActions);
+      setIsBusy(false);
     });
 
     socket.on('game:update', (payload: { delta: PublicGameDelta; availableActions: string[] }) => {
       setError(undefined);
       mergeDelta(payload.delta, payload.availableActions);
+      setIsBusy(false);
     });
 
     socket.on('server:error', (payload: { message: string }) => {
       setError(payload.message);
+      setIsBusy(false);
+      setIsRolling(false);
+      rollStartedAtRef.current = null;
     });
 
     return () => {
+      if (rollSettleTimeoutRef.current) {
+        window.clearTimeout(rollSettleTimeoutRef.current);
+      }
       socket.disconnect();
       socketRef.current = null;
     };
   }, [mergeDelta, setConnection, setError, setRoom, setSession, setSnapshot]);
+
+  useEffect(() => {
+    if (!game?.lastRoll) {
+      return;
+    }
+
+    const nextRoll = game.lastRoll.join('-');
+    if (previousRollRef.current === nextRoll) {
+      return;
+    }
+
+    previousRollRef.current = nextRoll;
+
+    if (!rollStartedAtRef.current) {
+      return;
+    }
+
+    const elapsed = Date.now() - rollStartedAtRef.current;
+    const remaining = Math.max(700 - elapsed, 0);
+
+    if (rollSettleTimeoutRef.current) {
+      window.clearTimeout(rollSettleTimeoutRef.current);
+    }
+
+    rollSettleTimeoutRef.current = window.setTimeout(() => {
+      setIsRolling(false);
+      setIsBusy(false);
+      rollStartedAtRef.current = null;
+    }, remaining);
+  }, [game?.lastRoll]);
 
   const me = useMemo(
     () => room?.players.find((player) => player.id === playerId),
@@ -115,22 +160,38 @@ export function MonoVerseApp() {
     socketRef.current?.emit(event, payload);
   }
 
+  function emitAction(action: 'ROLL_DICE' | 'BUY_PROPERTY' | 'PAY_BAIL' | 'END_TURN') {
+    if (!sessionId) {
+      return;
+    }
+
+    if (action === 'ROLL_DICE') {
+      setIsRolling(true);
+      setIsBusy(true);
+      rollStartedAtRef.current = Date.now();
+    } else {
+      setIsBusy(true);
+      window.setTimeout(() => {
+        setIsBusy(false);
+      }, 220);
+    }
+
+    emit('game:action', { sessionId, action });
+  }
+
   return (
     <main className="page-shell">
-      <div className="ambient ambient-one" />
-      <div className="ambient ambient-two" />
-
-      <section className="hero-grid">
+      <section className="lobby-shell">
         <motion.div
           className="hero-copy"
-          initial={{ opacity: 0, y: 18 }}
+          initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.55 }}
+          transition={{ duration: 0.45 }}
         >
-          <StatusPill>{connection === 'online' ? 'Socket live' : connection}</StatusPill>
-          <h1>MonoVerse turns Monopoly-style play into a premium realtime product.</h1>
+          <StatusPill>{connection === 'online' ? 'Realtime connected' : connection}</StatusPill>
+          <h1>MonoVerse delivers a clean, tactile multiplayer boardroom.</h1>
           <p>
-            Create a room, add friends or AI executives, and play on a server-authoritative city board with animated motion, reconnect support, and deterministic state.
+            Create a room, line up the table, and play through a server-authoritative match with smoother motion, clearer turn states, and a quieter interface.
           </p>
 
           <div className="hero-metrics">
@@ -140,11 +201,11 @@ export function MonoVerseApp() {
           </div>
         </motion.div>
 
-        <Surface className="control-panel">
+        <Surface className="control-panel lobby-card">
           <div className="panel-head">
             <div>
-              <span className="eyebrow">Lobby Control</span>
-              <h2>Get a match running</h2>
+              <span className="eyebrow">Lobby</span>
+              <h2>Set the table</h2>
             </div>
             {roomCode ? <StatusPill>{roomCode}</StatusPill> : null}
           </div>
@@ -177,14 +238,26 @@ export function MonoVerseApp() {
           </div>
 
           {room ? (
-            <div className="lobby-actions">
-              <GhostButton onClick={() => emit('player:ready', { sessionId, ready: !me?.ready })} disabled={!sessionId || room.status !== 'lobby'}>
-                {me?.ready ? 'Unready' : 'Ready up'}
-              </GhostButton>
-              <AccentButton onClick={() => emit('game:start', { sessionId })} disabled={!sessionId || !canStart}>
-                Start match
-              </AccentButton>
-            </div>
+            <>
+              <div className="lobby-list-shell">
+                <div className="section-label-row">
+                  <span className="section-label">Players</span>
+                  <span className="section-hint">
+                    {room.players.filter((player) => player.ready).length}/{room.players.length} ready
+                  </span>
+                </div>
+                <PlayerRoster room={room} currentPlayerId={game?.currentPlayerId} viewerId={playerId} compact />
+              </div>
+
+              <div className="lobby-actions">
+                <GhostButton onClick={() => emit('player:ready', { sessionId, ready: !me?.ready })} disabled={!sessionId || room.status !== 'lobby'}>
+                  {me?.ready ? 'Unready' : 'Ready up'}
+                </GhostButton>
+                <AccentButton onClick={() => emit('game:start', { sessionId })} disabled={!sessionId || !canStart}>
+                  Start game
+                </AccentButton>
+              </div>
+            </>
           ) : null}
 
           {error ? <p className="error-text">{error}</p> : null}
@@ -193,33 +266,43 @@ export function MonoVerseApp() {
 
       <section className="experience-grid">
         <div className="experience-left">
-          <GameBoard game={game} room={room} viewerId={playerId} />
+          <GameBoard game={game} room={room} viewerId={playerId} isRolling={isRolling} />
+
           <Surface className="action-panel">
             <div className="panel-head">
               <div>
-                <span className="eyebrow">Turn Actions</span>
-                <h2>Play the board</h2>
+                <span className="eyebrow">Action Panel</span>
+                <h2>Take your turn</h2>
               </div>
               <StatusPill>{currentPlayer?.name ?? 'Waiting'}</StatusPill>
             </div>
 
+            <div className="section-label-row">
+              <span className="section-label">Actions</span>
+              <span className="section-hint">{isRolling ? 'Rolling…' : 'Authoritative turn controls'}</span>
+            </div>
+
             <div className="action-stack">
-              <AccentButton onClick={() => emit('game:action', { sessionId, action: 'ROLL_DICE' })} disabled={!sessionId || !availableActions.includes('ROLL_DICE')}>
-                Roll dice
+              <AccentButton onClick={() => emitAction('ROLL_DICE')} disabled={!sessionId || !availableActions.includes('ROLL_DICE') || isRolling || isBusy}>
+                {isRolling ? 'Rolling…' : 'Roll dice'}
               </AccentButton>
-              <GhostButton onClick={() => emit('game:action', { sessionId, action: 'BUY_PROPERTY' })} disabled={!sessionId || !availableActions.includes('BUY_PROPERTY')}>
+              <GhostButton onClick={() => emitAction('BUY_PROPERTY')} disabled={!sessionId || !availableActions.includes('BUY_PROPERTY') || isRolling || isBusy}>
                 Buy property
               </GhostButton>
-              <GhostButton onClick={() => emit('game:action', { sessionId, action: 'PAY_BAIL' })} disabled={!sessionId || !availableActions.includes('PAY_BAIL')}>
+              <GhostButton onClick={() => emitAction('PAY_BAIL')} disabled={!sessionId || !availableActions.includes('PAY_BAIL') || isRolling || isBusy}>
                 Pay bail
               </GhostButton>
-              <GhostButton onClick={() => emit('game:action', { sessionId, action: 'END_TURN' })} disabled={!sessionId || !availableActions.includes('END_TURN')}>
+              <GhostButton onClick={() => emitAction('END_TURN')} disabled={!sessionId || !availableActions.includes('END_TURN') || isRolling || isBusy}>
                 End turn
               </GhostButton>
             </div>
 
             <div className="action-caption">
-              <p>Server-authoritative actions only become active when it is your turn.</p>
+              <p>
+                {game
+                  ? 'Only valid turn actions are enabled, and dice rolling temporarily locks the panel.'
+                  : 'Join a room to unlock the turn controls.'}
+              </p>
             </div>
           </Surface>
         </div>
@@ -240,8 +323,12 @@ export function MonoVerseApp() {
             <div className="panel-head">
               <div>
                 <span className="eyebrow">Activity Feed</span>
-                <h2>Live events</h2>
+                <h2>Match log</h2>
               </div>
+            </div>
+            <div className="section-label-row">
+              <span className="section-label">Timeline</span>
+              <span className="section-hint">{game?.log?.length ?? 0} events</span>
             </div>
             <div className="feed-list">
               {game?.log?.length ? (

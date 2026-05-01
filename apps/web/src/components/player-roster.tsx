@@ -5,11 +5,13 @@ import type { PublicRoomState } from '../lib/contracts';
 export function PlayerRoster({
   room,
   currentPlayerId,
-  viewerId
+  viewerId,
+  compact = false
 }: {
   room?: PublicRoomState;
   currentPlayerId?: string;
   viewerId?: string;
+  compact?: boolean;
 }) {
   if (!room) {
     return null;
@@ -20,7 +22,7 @@ export function PlayerRoster({
       {room.players.map((player) => (
         <div
           key={player.id}
-          className={`roster-card ${player.id === currentPlayerId ? 'roster-card-active' : ''} ${player.bankrupt ? 'roster-card-bankrupt' : ''}`}
+          className={`roster-card ${compact ? 'roster-card-compact' : ''} ${player.id === currentPlayerId ? 'roster-card-active' : ''} ${player.bankrupt ? 'roster-card-bankrupt' : ''}`}
         >
           <div className="roster-card-top">
             <div>
@@ -34,7 +36,9 @@ export function PlayerRoster({
             </div>
           </div>
           <div className="roster-card-bottom">
-            <span>{player.ready ? 'Ready' : 'Waiting'}</span>
+            <span className={player.ready ? 'status-ready' : 'status-waiting'}>
+              {player.ready ? 'Ready' : 'Waiting'}
+            </span>
             <strong>{player.cash ?? '—'}¢</strong>
             <span>{player.isConnected ? 'Online' : 'Reconnecting'}</span>
           </div>
