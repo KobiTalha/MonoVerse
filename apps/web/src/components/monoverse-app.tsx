@@ -2,11 +2,12 @@
 
 import type { PublicGameState } from '@monoverse/game-engine';
 import { AccentButton, GhostButton, LabelValue, StatusPill, Surface } from '@monoverse/ui';
-import { motion } from 'framer-motion';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { AnimatePresence, motion } from 'framer-motion';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { io, type Socket } from 'socket.io-client';
 
 import type { PublicGameDelta } from '../lib/contracts';
+import { useSound } from '../lib/use-sound';
 import { useMonoVerseStore } from '../store/monoverse-store';
 import { GameBoard } from './game-board';
 import { PlayerRoster } from './player-roster';
@@ -17,12 +18,20 @@ export function MonoVerseApp() {
   const socketRef = useRef<Socket | null>(null);
   const rollStartedAtRef = useRef<number | null>(null);
   const rollSettleTimeoutRef = useRef<number | null>(null);
+  const settleResetTimeoutRef = useRef<number | null>(null);
   const previousRollRef = useRef<string | undefined>(undefined);
+  const previousTurnPlayerRef = useRef<string | undefined>(undefined);
+  const previousWinnerRef = useRef<string | undefined>(undefined);
+  const previousJailedRef = useRef<Record<string, boolean>>({});
   const [name, setName] = useState('Talha');
   const [token, setToken] = useState('Comet');
   const [joinCode, setJoinCode] = useState('');
   const [isRolling, setIsRolling] = useState(false);
+  const [justSettled, setJustSettled] = useState(false);
   const [isBusy, setIsBusy] = useState(false);
+  const [soundOn, setSoundOn] = useState(true);
+
+  const playSound = useSound(soundOn);
 
   const {
     connection,
@@ -38,7 +47,8 @@ export function MonoVerseApp() {
     setSession,
     setSnapshot,
     mergeDelta,
-    setError
+    setError,
+    reset
   } = useMonoVerseStore();
 
   useEffect(() => {
@@ -103,11 +113,15 @@ export function MonoVerseApp() {
       if (rollSettleTimeoutRef.current) {
         window.clearTimeout(rollSettleTimeoutRef.current);
       }
+      if (settleResetTimeoutRef.current) {
+        window.clearTimeout(settleResetTimeoutRef.current);
+      }
       socket.disconnect();
       socketRef.current = null;
     };
   }, [mergeDelta, setConnection, setError, setRoom, setSession, setSnapshot]);
 
+  // Settle dice and trigger settled flash once backend result arrives
   useEffect(() => {
     if (!game?.lastRoll) {
       return;
@@ -135,8 +149,52 @@ export function MonoVerseApp() {
       setIsRolling(false);
       setIsBusy(false);
       rollStartedAtRef.current = null;
+      setJustSettled(true);
+      if (settleResetTimeoutRef.current) {
+        window.clearTimeout(settleResetTimeoutRef.current);
+      }
+      settleResetTimeoutRef.current = window.setTimeout(() => setJustSettled(false), 700);
     }, remaining);
   }, [game?.lastRoll]);
+
+  // Detect turn changes for sound + UX banner
+  useEffect(() => {
+    if (!game?.currentPlayerId) {
+      previousTurnPlayerRef.current = undefined;
+      return;
+    }
+
+    if (previousTurnPlayerRef.current && previousTurnPlayerRef.current !== game.currentPlayerId) {
+      playSound('turn');
+    }
+
+    previousTurnPlayerRef.current = game.currentPlayerId;
+  }, [game?.currentPlayerId, playSound]);
+
+  // Detect winner for celebratory sound
+  useEffect(() => {
+    if (game?.winnerId && previousWinnerRef.current !== game.winnerId) {
+      previousWinnerRef.current = game.winnerId;
+      playSound('win');
+    }
+  }, [game?.winnerId, playSound]);
+
+  // Detect jail event
+  useEffect(() => {
+    if (!game?.players) return;
+
+    const next: Record<string, boolean> = {};
+    for (const player of game.players) {
+      const previously = previousJailedRef.current[player.id] ?? false;
+      next[player.id] = player.inJail;
+
+      if (player.inJail && !previously) {
+        playSound('jail');
+      }
+    }
+
+    previousJailedRef.current = next;
+  }, [game?.players, playSound]);
 
   const me = useMemo(
     () => room?.players.find((player) => player.id === playerId),
@@ -147,6 +205,8 @@ export function MonoVerseApp() {
     () => room?.players.find((player) => player.id === game?.currentPlayerId),
     [game?.currentPlayerId, room?.players]
   );
+
+  const isMyTurn = Boolean(playerId && game?.currentPlayerId === playerId);
 
   const canStart = Boolean(
     room &&
@@ -168,16 +228,54 @@ export function MonoVerseApp() {
     if (action === 'ROLL_DICE') {
       setIsRolling(true);
       setIsBusy(true);
+      setJustSettled(false);
       rollStartedAtRef.current = Date.now();
+      playSound('dice');
     } else {
       setIsBusy(true);
       window.setTimeout(() => {
         setIsBusy(false);
       }, 220);
+      if (action === 'BUY_PROPERTY') {
+        playSound('purchase');
+      }
     }
 
     emit('game:action', { sessionId, action });
   }
+
+  const handleLeaveRoom = useCallback(() => {
+    window.localStorage.removeItem('monoverse.sessionId');
+    window.localStorage.removeItem('monoverse.roomCode');
+    socketRef.current?.disconnect();
+    reset();
+    window.location.reload();
+  }, [reset]);
+
+  const onStepFromBoard = useCallback(() => {
+    playSound('step');
+  }, [playSound]);
+
+  const onLandFromBoard = useCallback(() => {
+    // Land effect handled visually; turn / purchase sounds fire elsewhere
+  }, []);
+
+  const turnStatus = useMemo(() => {
+    if (!game) {
+      return { tone: 'idle' as const, label: 'Connect to begin' };
+    }
+    if (game.winnerId) {
+      const winner = room?.players.find((player) => player.id === game.winnerId)?.name ?? 'A player';
+      return { tone: 'win' as const, label: `${winner} wins MonoVerse` };
+    }
+    if (isMyTurn) {
+      return { tone: 'mine' as const, label: 'Your turn' };
+    }
+    return {
+      tone: 'theirs' as const,
+      label: currentPlayer ? `Waiting for ${currentPlayer.name}…` : 'Waiting for players…'
+    };
+  }, [currentPlayer, game, isMyTurn, room?.players]);
 
   return (
     <main className="page-shell">
@@ -188,10 +286,23 @@ export function MonoVerseApp() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.45 }}
         >
-          <StatusPill>{connection === 'online' ? 'Realtime connected' : connection}</StatusPill>
+          <div className="hero-pills">
+            <StatusPill>{connection === 'online' ? 'Realtime connected' : connection}</StatusPill>
+            <button
+              type="button"
+              className={`sound-toggle ${soundOn ? 'sound-toggle-on' : ''}`}
+              onClick={() => setSoundOn((value) => !value)}
+              aria-pressed={soundOn}
+              title={soundOn ? 'Mute sound' : 'Unmute sound'}
+            >
+              <span aria-hidden>{soundOn ? '🔊' : '🔇'}</span>
+              <span>{soundOn ? 'Sound on' : 'Sound off'}</span>
+            </button>
+          </div>
           <h1>MonoVerse delivers a clean, tactile multiplayer boardroom.</h1>
           <p>
-            Create a room, line up the table, and play through a server-authoritative match with smoother motion, clearer turn states, and a quieter interface.
+            Create a room, line up the table, and play through a server-authoritative match with smoother motion,
+            clearer turn states, sound feedback, and a quieter interface.
           </p>
 
           <div className="hero-metrics">
@@ -223,7 +334,10 @@ export function MonoVerseApp() {
 
           <div className="action-row">
             <AccentButton onClick={() => emit('room:create', { name, token })}>Create room</AccentButton>
-            <GhostButton onClick={() => emit('room:add-bot', { sessionId })} disabled={!sessionId || room?.hostPlayerId !== playerId || room?.status !== 'lobby'}>
+            <GhostButton
+              onClick={() => emit('room:add-bot', { sessionId })}
+              disabled={!sessionId || room?.hostPlayerId !== playerId || room?.status !== 'lobby'}
+            >
               Add AI
             </GhostButton>
           </div>
@@ -250,12 +364,20 @@ export function MonoVerseApp() {
               </div>
 
               <div className="lobby-actions">
-                <GhostButton onClick={() => emit('player:ready', { sessionId, ready: !me?.ready })} disabled={!sessionId || room.status !== 'lobby'}>
+                <GhostButton
+                  onClick={() => emit('player:ready', { sessionId, ready: !me?.ready })}
+                  disabled={!sessionId || room.status !== 'lobby'}
+                >
                   {me?.ready ? 'Unready' : 'Ready up'}
                 </GhostButton>
                 <AccentButton onClick={() => emit('game:start', { sessionId })} disabled={!sessionId || !canStart}>
                   Start game
                 </AccentButton>
+              </div>
+              <div className="lobby-meta-row">
+                <button type="button" className="link-button" onClick={handleLeaveRoom}>
+                  Leave room
+                </button>
               </div>
             </>
           ) : null}
@@ -264,9 +386,38 @@ export function MonoVerseApp() {
         </Surface>
       </section>
 
+      {game ? (
+        <AnimatePresence>
+          <motion.div
+            key={turnStatus.tone}
+            initial={{ opacity: 0, y: -8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -8 }}
+            transition={{ duration: 0.25 }}
+            className={`turn-banner turn-banner-${turnStatus.tone}`}
+          >
+            <span className="turn-banner-dot" />
+            <strong>{turnStatus.label}</strong>
+            {game.lastRoll ? (
+              <span className="turn-banner-roll">
+                Last roll: {game.lastRoll[0]} + {game.lastRoll[1]}
+              </span>
+            ) : null}
+          </motion.div>
+        </AnimatePresence>
+      ) : null}
+
       <section className="experience-grid">
         <div className="experience-left">
-          <GameBoard game={game} room={room} viewerId={playerId} isRolling={isRolling} />
+          <GameBoard
+            game={game}
+            room={room}
+            viewerId={playerId}
+            isRolling={isRolling}
+            justSettled={justSettled}
+            onStep={onStepFromBoard}
+            onLand={onLandFromBoard}
+          />
 
           <Surface className="action-panel">
             <div className="panel-head">
@@ -283,16 +434,28 @@ export function MonoVerseApp() {
             </div>
 
             <div className="action-stack">
-              <AccentButton onClick={() => emitAction('ROLL_DICE')} disabled={!sessionId || !availableActions.includes('ROLL_DICE') || isRolling || isBusy}>
+              <AccentButton
+                onClick={() => emitAction('ROLL_DICE')}
+                disabled={!sessionId || !availableActions.includes('ROLL_DICE') || isRolling || isBusy}
+              >
                 {isRolling ? 'Rolling…' : 'Roll dice'}
               </AccentButton>
-              <GhostButton onClick={() => emitAction('BUY_PROPERTY')} disabled={!sessionId || !availableActions.includes('BUY_PROPERTY') || isRolling || isBusy}>
+              <GhostButton
+                onClick={() => emitAction('BUY_PROPERTY')}
+                disabled={!sessionId || !availableActions.includes('BUY_PROPERTY') || isRolling || isBusy}
+              >
                 Buy property
               </GhostButton>
-              <GhostButton onClick={() => emitAction('PAY_BAIL')} disabled={!sessionId || !availableActions.includes('PAY_BAIL') || isRolling || isBusy}>
+              <GhostButton
+                onClick={() => emitAction('PAY_BAIL')}
+                disabled={!sessionId || !availableActions.includes('PAY_BAIL') || isRolling || isBusy}
+              >
                 Pay bail
               </GhostButton>
-              <GhostButton onClick={() => emitAction('END_TURN')} disabled={!sessionId || !availableActions.includes('END_TURN') || isRolling || isBusy}>
+              <GhostButton
+                onClick={() => emitAction('END_TURN')}
+                disabled={!sessionId || !availableActions.includes('END_TURN') || isRolling || isBusy}
+              >
                 End turn
               </GhostButton>
             </div>
