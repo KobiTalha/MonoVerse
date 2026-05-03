@@ -22,10 +22,12 @@ function randomDie() {
 
 export function DiceDisplay({
   roll,
-  isRolling
+  isRolling,
+  justSettled
 }: {
   roll?: [number, number];
   isRolling?: boolean;
+  justSettled?: boolean;
 }) {
   const finalRoll = useMemo<[number, number]>(() => roll ?? [1, 1], [roll]);
   const [displayValues, setDisplayValues] = useState<[number, number]>(finalRoll);
@@ -47,7 +49,17 @@ export function DiceDisplay({
   }, [finalRoll, isRolling]);
 
   return (
-    <div className={`dice-pair ${isRolling ? 'dice-pair-rolling' : ''}`}>
+    <div
+      className={`dice-pair ${isRolling ? 'dice-pair-rolling' : ''} ${
+        justSettled && !isRolling ? 'dice-pair-settled' : ''
+      }`}
+      aria-live="polite"
+      aria-label={
+        isRolling
+          ? 'Rolling dice…'
+          : `Last dice roll: ${finalRoll[0]} and ${finalRoll[1]}`
+      }
+    >
       {displayValues.map((value, index) => (
         <motion.div
           key={`${index}-${isRolling ? 'rolling' : finalRoll.join('-')}`}
@@ -56,18 +68,26 @@ export function DiceDisplay({
           animate={
             isRolling
               ? {
-                  rotate: [0, index === 0 ? -18 : 18, 0],
-                  scale: [1, 1.06, 1],
-                  y: [0, -4, 0]
+                  rotate: [0, index === 0 ? -22 : 22, index === 0 ? 14 : -14, 0],
+                  scale: [1, 1.08, 0.96, 1.04],
+                  y: [0, -6, 2, 0],
+                  x: [0, index === 0 ? -3 : 3, index === 0 ? 2 : -2, 0]
+                }
+              : justSettled
+              ? {
+                  rotate: [0, index === 0 ? -4 : 4, 0],
+                  scale: [1, 1.12, 1],
+                  y: [0, -3, 0]
                 }
               : {
                   rotate: 0,
                   scale: 1,
-                  y: 0
+                  y: 0,
+                  x: 0
                 }
           }
           transition={{
-            duration: isRolling ? 0.24 : 0.32,
+            duration: isRolling ? 0.22 : justSettled ? 0.36 : 0.32,
             repeat: isRolling ? Number.POSITIVE_INFINITY : 0,
             ease: 'easeInOut',
             delay: index * 0.03
