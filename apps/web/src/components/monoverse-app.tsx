@@ -13,6 +13,7 @@ import { GameBoard } from './game-board';
 import { PlayerRoster } from './player-roster';
 
 const SERVER_URL = process.env.NEXT_PUBLIC_SERVER_URL ?? 'http://localhost:4001';
+const USE_SAME_ORIGIN = SERVER_URL === '' || SERVER_URL === 'same-origin';
 
 export function MonoVerseApp() {
   const socketRef = useRef<Socket | null>(null);
@@ -52,10 +53,9 @@ export function MonoVerseApp() {
   } = useMonoVerseStore();
 
   useEffect(() => {
-    const socket = io(SERVER_URL, {
-      autoConnect: true,
-      transports: ['websocket']
-    });
+    const socket = USE_SAME_ORIGIN
+      ? io({ autoConnect: true, transports: ['websocket'] })
+      : io(SERVER_URL, { autoConnect: true, transports: ['websocket'] });
 
     socketRef.current = socket;
     setConnection('connecting');
