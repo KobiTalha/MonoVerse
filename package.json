@@ -14,6 +14,7 @@
     "dev:server": "npm run dev --workspace @monoverse/server",
     "build": "npm run build --workspace @monoverse/game-engine && npm run build --workspace @monoverse/server && npm run build --workspace @monoverse/web",
     "test": "npm run test --workspace @monoverse/game-engine && npm run test --workspace @monoverse/server",
-    "lint": "npm run lint --workspace @monoverse/web"
+    "lint": "npm run lint --workspace @monoverse/web",
+    "typecheck": "npm run typecheck --workspace @monoverse/web"
   }
 }

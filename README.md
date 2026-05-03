@@ -101,8 +101,12 @@ All gameplay mutations flow through the server. The client receives either full 
 
 ### Frontend
 - 11×11 CSS Grid board with active tile and player highlights
-- Tile-by-tile token animation (~300–500ms per step) with eased transitions
-- Dice roll animation with settle behavior and input lockout
+- Subtle 3D perspective tilt for depth without visual clutter
+- Tile-by-tile token animation (~320ms per step) with eased transitions
+- Dice rolling animation with shake, glow, and a settled flash on result reveal
+- Token landing bounce + property purchase flash animation
+- Prominent "Your Turn" / "Waiting for player…" status banner
+- Web Audio sound system for dice, movement, purchase, jail, turn change, and victory (toggle-able)
 - Server-synced action panel — only valid turn actions are enabled
 - Dark-mode palette with 8px spacing system and micro-interactions
 - Responsive layout for desktop and mobile viewports
@@ -199,6 +203,23 @@ The client runs on `http://localhost:3000` and connects to the WebSocket server 
 ---
 
 ## Deployment
+
+### Local / "Live in Devin"
+
+For ephemeral hosted previews you can run both apps from a Devin VM and expose
+them through the Devin deploy tool:
+
+```bash
+# Terminal 1 — server
+PORT=4001 CLIENT_ORIGIN="*" npm run dev:server
+
+# Terminal 2 — web (after pointing it at the public server URL)
+NEXT_PUBLIC_SERVER_URL="https://<exposed-server>.devinapps.com" npm run build --workspace @monoverse/web
+NEXT_PUBLIC_SERVER_URL="https://<exposed-server>.devinapps.com" npm run start --workspace @monoverse/web
+```
+
+Then run `deploy expose 4001` and `deploy expose 3000` (or use Devin's deploy
+tool) to get public HTTPS URLs.
 
 ### Frontend → Vercel
 
