@@ -16,16 +16,17 @@ import { LandingHero } from './landing-hero';
 import { PlayerRoster } from './player-roster';
 import { PropertyDeed } from './property-deed';
 
-// Build-time env-var. On Vercel, this is undefined unless the user sets it,
-// so we fall back to the public realtime backend below when running on Vercel.
+// Build-time env-var. On Vercel set this to your Node + Socket.io backend URL
+// (e.g. a Fly.io / Render / Railway domain) — without it, the Vercel deploy
+// shows the connection-help banner and a CTA to play on the live tunnel.
 const BUILD_SERVER_URL = (process.env.NEXT_PUBLIC_SERVER_URL ?? '').trim();
 
-// Public Devin tunnel hosting the combined Next.js + Socket.io server
-// (apps/web/server-prod.mjs on port 3000). When the Vercel deploy has no
-// NEXT_PUBLIC_SERVER_URL configured, the frontend falls back to this URL so
-// the realtime pill turns green automatically. Override by setting
-// NEXT_PUBLIC_SERVER_URL in your Vercel project's Environment Variables.
-const FALLBACK_REALTIME_URL =
+// Public combined Next.js + Socket.io server hosted on the Devin tunnel.
+// Note: this URL has HTTP basic-auth in the URL so it works as a redirect
+// target (browser prompts once and saves), but Chrome strips basic-auth from
+// cross-origin WebSocket URLs, so it cannot be used as a Socket.io endpoint
+// from a different origin (Vercel). Use it as a 'play live' link only.
+const LIVE_GAME_URL =
   'https://user:8299d2d44b5bab7ba06a57ddad560f9b@97d25517b1b2-tunnel-8c91vpxc.devinapps.com';
 
 function isVercelHost(): boolean {
@@ -36,9 +37,6 @@ function isVercelHost(): boolean {
 function resolveServerUrl(): { url: string; useSameOrigin: boolean } {
   if (BUILD_SERVER_URL && BUILD_SERVER_URL !== 'same-origin') {
     return { url: BUILD_SERVER_URL, useSameOrigin: false };
-  }
-  if (isVercelHost()) {
-    return { url: FALLBACK_REALTIME_URL, useSameOrigin: false };
   }
   return { url: '', useSameOrigin: true };
 }
@@ -363,17 +361,24 @@ export function MonoVerseApp() {
               : ' The Socket.io server may be offline.'}
           </p>
           {isVercelHost() ? (
-            <ol className="connection-help-steps">
-              <li>
-                Open your Vercel project &rarr; <strong>Settings</strong> &rarr;
-                <strong> Environment Variables</strong>.
-              </li>
-              <li>
-                Add <code>NEXT_PUBLIC_SERVER_URL</code> set to your live Node backend URL
-                (e.g. a Fly.io / Render / Railway / Devin tunnel hosting <code>apps/server</code>).
-              </li>
-              <li>Trigger a redeploy. The connection pill should turn green.</li>
-            </ol>
+            <>
+              <a
+                className="connection-help-cta"
+                href={LIVE_GAME_URL}
+                target="_self"
+                rel="noopener noreferrer"
+              >
+                <span aria-hidden>▶</span>
+                Play the live game now
+              </a>
+              <p className="connection-help-note">
+                Opens the combined Next.js + Socket.io server on the Devin tunnel
+                (single-origin, full multiplayer + sound + animations). For a
+                permanent backend, set <code>NEXT_PUBLIC_SERVER_URL</code> in your
+                Vercel project settings to a Node host (Fly.io / Render / Railway)
+                and redeploy.
+              </p>
+            </>
           ) : null}
         </motion.aside>
       ) : null}
