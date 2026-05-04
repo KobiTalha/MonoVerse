@@ -21,13 +21,13 @@ import { PropertyDeed } from './property-deed';
 // shows the connection-help banner and a CTA to play on the live tunnel.
 const BUILD_SERVER_URL = (process.env.NEXT_PUBLIC_SERVER_URL ?? '').trim();
 
-// Public combined Next.js + Socket.io server hosted on the Devin tunnel.
-// Note: this URL has HTTP basic-auth in the URL so it works as a redirect
-// target (browser prompts once and saves), but Chrome strips basic-auth from
-// cross-origin WebSocket URLs, so it cannot be used as a Socket.io endpoint
-// from a different origin (Vercel). Use it as a 'play live' link only.
-const LIVE_GAME_URL =
-  'https://user:8299d2d44b5bab7ba06a57ddad560f9b@97d25517b1b2-tunnel-8c91vpxc.devinapps.com';
+// Public combined Next.js + Socket.io server. Build-time override via
+// NEXT_PUBLIC_LIVE_GAME_URL — defaults to the Cloudflare quick tunnel
+// fronting the Devin VM. No basic-auth so Chrome can navigate directly.
+const LIVE_GAME_URL = (
+  process.env.NEXT_PUBLIC_LIVE_GAME_URL?.trim() ||
+  'https://disciplines-belly-drawn-soil.trycloudflare.com'
+);
 
 function isVercelHost(): boolean {
   if (typeof window === 'undefined') return false;
@@ -37,6 +37,12 @@ function isVercelHost(): boolean {
 function resolveServerUrl(): { url: string; useSameOrigin: boolean } {
   if (BUILD_SERVER_URL && BUILD_SERVER_URL !== 'same-origin') {
     return { url: BUILD_SERVER_URL, useSameOrigin: false };
+  }
+  // Vercel cannot host the Socket.io backend, so any *.vercel.app deploy
+  // talks to the auth-free public tunnel instead. Cross-origin works
+  // because LIVE_GAME_URL no longer carries HTTP basic-auth.
+  if (isVercelHost() && LIVE_GAME_URL) {
+    return { url: LIVE_GAME_URL, useSameOrigin: false };
   }
   return { url: '', useSameOrigin: true };
 }
@@ -89,9 +95,14 @@ export function MonoVerseApp() {
 
   useEffect(() => {
     const { url, useSameOrigin } = resolveServerUrl();
-    const socket = useSameOrigin
-      ? io({ autoConnect: true, transports: ['websocket'] })
-      : io(url, { autoConnect: true, transports: ['websocket'] });
+    // Allow polling fallback for the cross-origin Cloudflare tunnel; some
+    // networks block raw websockets and Socket.io will upgrade transparently.
+    const opts = {
+      autoConnect: true,
+      transports: ['websocket', 'polling'],
+      withCredentials: false
+    };
+    const socket = useSameOrigin ? io(opts) : io(url, opts);
 
     socketRef.current = socket;
     setConnection('connecting');
