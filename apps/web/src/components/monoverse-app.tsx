@@ -16,19 +16,38 @@ import { LandingHero } from './landing-hero';
 import { PlayerRoster } from './player-roster';
 import { PropertyDeed } from './property-deed';
 
-const RAW_SERVER_URL = process.env.NEXT_PUBLIC_SERVER_URL ?? '';
-const SERVER_URL = RAW_SERVER_URL.trim();
-const USE_SAME_ORIGIN = SERVER_URL === '' || SERVER_URL === 'same-origin';
+// Build-time env-var. On Vercel, this is undefined unless the user sets it,
+// so we fall back to the public realtime backend below when running on Vercel.
+const BUILD_SERVER_URL = (process.env.NEXT_PUBLIC_SERVER_URL ?? '').trim();
 
-function describeBackend(): string {
-  if (typeof window === 'undefined') return USE_SAME_ORIGIN ? 'same-origin' : SERVER_URL;
-  if (USE_SAME_ORIGIN) return `${window.location.origin} (same origin)`;
-  return SERVER_URL;
-}
+// Public Devin tunnel hosting the combined Next.js + Socket.io server
+// (apps/web/server-prod.mjs on port 3000). When the Vercel deploy has no
+// NEXT_PUBLIC_SERVER_URL configured, the frontend falls back to this URL so
+// the realtime pill turns green automatically. Override by setting
+// NEXT_PUBLIC_SERVER_URL in your Vercel project's Environment Variables.
+const FALLBACK_REALTIME_URL =
+  'https://user:8299d2d44b5bab7ba06a57ddad560f9b@97d25517b1b2-tunnel-8c91vpxc.devinapps.com';
 
 function isVercelHost(): boolean {
   if (typeof window === 'undefined') return false;
   return /\.vercel\.app$/i.test(window.location.hostname);
+}
+
+function resolveServerUrl(): { url: string; useSameOrigin: boolean } {
+  if (BUILD_SERVER_URL && BUILD_SERVER_URL !== 'same-origin') {
+    return { url: BUILD_SERVER_URL, useSameOrigin: false };
+  }
+  if (isVercelHost()) {
+    return { url: FALLBACK_REALTIME_URL, useSameOrigin: false };
+  }
+  return { url: '', useSameOrigin: true };
+}
+
+function describeBackend(): string {
+  const { url, useSameOrigin } = resolveServerUrl();
+  if (typeof window === 'undefined') return useSameOrigin ? 'same-origin' : url;
+  if (useSameOrigin) return `${window.location.origin} (same origin)`;
+  return url;
 }
 
 export function MonoVerseApp() {
@@ -71,9 +90,10 @@ export function MonoVerseApp() {
   } = useMonoVerseStore();
 
   useEffect(() => {
-    const socket = USE_SAME_ORIGIN
+    const { url, useSameOrigin } = resolveServerUrl();
+    const socket = useSameOrigin
       ? io({ autoConnect: true, transports: ['websocket'] })
-      : io(SERVER_URL, { autoConnect: true, transports: ['websocket'] });
+      : io(url, { autoConnect: true, transports: ['websocket'] });
 
     socketRef.current = socket;
     setConnection('connecting');
