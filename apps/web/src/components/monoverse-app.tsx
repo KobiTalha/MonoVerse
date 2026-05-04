@@ -16,8 +16,20 @@ import { LandingHero } from './landing-hero';
 import { PlayerRoster } from './player-roster';
 import { PropertyDeed } from './property-deed';
 
-const SERVER_URL = process.env.NEXT_PUBLIC_SERVER_URL ?? 'http://localhost:4001';
+const RAW_SERVER_URL = process.env.NEXT_PUBLIC_SERVER_URL ?? '';
+const SERVER_URL = RAW_SERVER_URL.trim();
 const USE_SAME_ORIGIN = SERVER_URL === '' || SERVER_URL === 'same-origin';
+
+function describeBackend(): string {
+  if (typeof window === 'undefined') return USE_SAME_ORIGIN ? 'same-origin' : SERVER_URL;
+  if (USE_SAME_ORIGIN) return `${window.location.origin} (same origin)`;
+  return SERVER_URL;
+}
+
+function isVercelHost(): boolean {
+  if (typeof window === 'undefined') return false;
+  return /\.vercel\.app$/i.test(window.location.hostname);
+}
 
 export function MonoVerseApp() {
   const socketRef = useRef<Socket | null>(null);
@@ -36,6 +48,7 @@ export function MonoVerseApp() {
   const [isBusy, setIsBusy] = useState(false);
   const [soundOn, setSoundOn] = useState(true);
   const [selectedTileId, setSelectedTileId] = useState<string | undefined>();
+  const [connectionStuck, setConnectionStuck] = useState(false);
 
   const playSound = useSound(soundOn);
 
@@ -132,6 +145,15 @@ export function MonoVerseApp() {
       socketRef.current = null;
     };
   }, [mergeDelta, setConnection, setError, setRoom, setSession, setSnapshot]);
+
+  useEffect(() => {
+    if (connection === 'online') {
+      setConnectionStuck(false);
+      return;
+    }
+    const id = window.setTimeout(() => setConnectionStuck(true), 6000);
+    return () => window.clearTimeout(id);
+  }, [connection]);
 
   useEffect(() => {
     if (!game?.lastRoll) return;
@@ -297,6 +319,44 @@ export function MonoVerseApp() {
         soundOn={soundOn}
         onToggleSound={() => setSoundOn((value) => !value)}
       />
+
+      {connectionStuck && connection !== 'online' ? (
+        <motion.aside
+          className="connection-help"
+          role="alert"
+          initial={{ opacity: 0, y: -8 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3 }}
+        >
+          <div className="connection-help-head">
+            <span className="connection-help-pill">Backend unreachable</span>
+            <h3>
+              {isVercelHost()
+                ? 'Vercel hosts the UI but cannot run the realtime backend'
+                : 'Realtime backend is not responding'}
+            </h3>
+          </div>
+          <p>
+            The browser is trying to reach <code>{describeBackend()}</code> for live game state.
+            {isVercelHost()
+              ? ' Vercel only runs Next.js (serverless / edge), so it cannot keep a Socket.io connection open. The full game must point at a Node host that supports persistent WebSockets.'
+              : ' The Socket.io server may be offline.'}
+          </p>
+          {isVercelHost() ? (
+            <ol className="connection-help-steps">
+              <li>
+                Open your Vercel project &rarr; <strong>Settings</strong> &rarr;
+                <strong> Environment Variables</strong>.
+              </li>
+              <li>
+                Add <code>NEXT_PUBLIC_SERVER_URL</code> set to your live Node backend URL
+                (e.g. a Fly.io / Render / Railway / Devin tunnel hosting <code>apps/server</code>).
+              </li>
+              <li>Trigger a redeploy. The connection pill should turn green.</li>
+            </ol>
+          ) : null}
+        </motion.aside>
+      ) : null}
 
       {!room ? (
         <section className="lobby-launchpad">

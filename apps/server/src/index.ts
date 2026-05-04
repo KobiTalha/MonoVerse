@@ -6,14 +6,16 @@ import { Server, type Socket } from 'socket.io';
 import { serverConfig } from './config';
 import { RoomManager } from './room-manager';
 
+type CorsOriginInput = string | RegExp | (string | RegExp)[];
+
 interface AttachOptions {
   httpServer: HttpServer;
   expressApp?: Express;
-  clientOrigin?: string | RegExp | string[];
+  clientOrigin?: CorsOriginInput;
 }
 
 export function attachMonoVerse({ httpServer, expressApp, clientOrigin }: AttachOptions) {
-  const origin = clientOrigin ?? serverConfig.clientOrigin;
+  const origin = (clientOrigin ?? serverConfig.clientOrigin) as CorsOriginInput;
   const credentials = origin !== '*';
 
   if (expressApp) {
