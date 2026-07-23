@@ -18,10 +18,6 @@ import { PlayerRoster } from './player-roster';
 import { PropertyDeed } from './property-deed';
 
 const BUILD_SERVER_URL = (process.env.NEXT_PUBLIC_SERVER_URL ?? '').trim();
-const LIVE_GAME_URL = (
-  process.env.NEXT_PUBLIC_LIVE_GAME_URL?.trim() ||
-  'https://disciplines-belly-drawn-soil.trycloudflare.com'
-);
 
 type EngineMode = 'server' | 'local';
 
@@ -33,9 +29,6 @@ function isVercelHost(): boolean {
 function resolveServerUrl(): { url: string; useSameOrigin: boolean } {
   if (BUILD_SERVER_URL && BUILD_SERVER_URL !== 'same-origin') {
     return { url: BUILD_SERVER_URL, useSameOrigin: false };
-  }
-  if (isVercelHost() && LIVE_GAME_URL) {
-    return { url: LIVE_GAME_URL, useSameOrigin: false };
   }
   return { url: '', useSameOrigin: true };
 }
@@ -57,7 +50,14 @@ export function MonoVerseApp() {
   const previousWinnerRef = useRef<string | undefined>(undefined);
   const previousJailedRef = useRef<Record<string, boolean>>({});
 
-  const [mode, setMode] = useState<EngineMode>('server');
+  const [mode, setMode] = useState<EngineMode>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = window.localStorage.getItem('monoverse.engine_mode');
+      if (saved === 'server' || saved === 'local') return saved;
+    }
+    return BUILD_SERVER_URL ? 'server' : 'local';
+  });
+
   const [name, setName] = useState('Talha');
   const [token, setToken] = useState('Comet');
   const [joinCode, setJoinCode] = useState('');
@@ -157,7 +157,7 @@ export function MonoVerseApp() {
         autoConnect: true,
         transports: ['websocket', 'polling'],
         withCredentials: false,
-        timeout: 4000
+        timeout: 3000
       };
       const socket: Socket = useSameOrigin ? io(opts) : io(url, opts);
       socketRef.current = socket;
@@ -243,7 +243,7 @@ export function MonoVerseApp() {
       setConnectionStuck(false);
       return;
     }
-    const id = window.setTimeout(() => setConnectionStuck(true), 4000);
+    const id = window.setTimeout(() => setConnectionStuck(true), 3000);
     return () => window.clearTimeout(id);
   }, [connection]);
 
@@ -328,12 +328,15 @@ export function MonoVerseApp() {
     socketRef.current?.emit(event, payload);
   }
 
-  function switchToLocalMode() {
+  function toggleEngineMode() {
+    const next = mode === 'local' ? 'server' : 'local';
+    window.localStorage.setItem('monoverse.engine_mode', next);
     reset();
-    setMode('local');
+    setMode(next);
   }
 
   function startInstantLocalGame() {
+    window.localStorage.setItem('monoverse.engine_mode', 'local');
     reset();
     setMode('local');
     setTimeout(() => {
@@ -427,7 +430,9 @@ export function MonoVerseApp() {
       <LandingHero
         connection={connection}
         soundOn={soundOn}
+        mode={mode}
         onToggleSound={() => setSoundOn((value) => !value)}
+        onToggleMode={toggleEngineMode}
       />
 
       {(connectionStuck || connection === 'offline') && mode === 'server' ? (
@@ -456,7 +461,7 @@ export function MonoVerseApp() {
             <AccentButton onClick={startInstantLocalGame}>
               ▶ Play Instant Game Now (In-Browser)
             </AccentButton>
-            <GhostButton onClick={switchToLocalMode}>
+            <GhostButton onClick={toggleEngineMode}>
               Switch to In-Browser Engine
             </GhostButton>
           </div>

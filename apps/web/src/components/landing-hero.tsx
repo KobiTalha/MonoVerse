@@ -5,11 +5,15 @@ import { motion } from 'framer-motion';
 export function LandingHero({
   connection,
   soundOn,
-  onToggleSound
+  mode,
+  onToggleSound,
+  onToggleMode
 }: {
   connection: string;
   soundOn: boolean;
+  mode?: 'server' | 'local';
   onToggleSound: () => void;
+  onToggleMode?: () => void;
 }) {
   return (
     <header className="landing-hero">
@@ -27,11 +31,26 @@ export function LandingHero({
           <span className={`pill pill-status pill-status-${connection}`}>
             <span className="pill-status-dot" aria-hidden />
             {connection === 'online'
-              ? 'Realtime connected'
+              ? 'Realtime server'
+              : connection === 'local'
+              ? 'In-Browser engine'
               : connection === 'connecting'
               ? 'Connecting…'
-              : 'Offline'}
+              : 'Backend unreachable'}
           </span>
+
+          {onToggleMode ? (
+            <button
+              type="button"
+              className="pill pill-toggle"
+              onClick={onToggleMode}
+              title="Click to switch between In-Browser engine and WebSocket server"
+            >
+              <span aria-hidden>{mode === 'local' ? '⚡' : '🌐'}</span>
+              {mode === 'local' ? 'In-Browser mode' : 'WebSocket server'}
+            </button>
+          ) : null}
+
           <button
             type="button"
             className={`pill pill-toggle ${soundOn ? 'pill-toggle-on' : ''}`}
