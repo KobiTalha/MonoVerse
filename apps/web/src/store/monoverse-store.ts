@@ -5,7 +5,7 @@ import { create } from 'zustand';
 
 import type { PublicGameDelta, PublicRoomState } from '../lib/contracts';
 
-type ConnectionState = 'offline' | 'connecting' | 'online';
+type ConnectionState = 'offline' | 'connecting' | 'online' | 'local';
 
 interface MonoVerseStore {
   connection: ConnectionState;

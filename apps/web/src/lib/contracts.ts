@@ -35,3 +35,6 @@ export interface PublicGameDelta {
   extraTurnPending?: boolean;
   log?: PublicGameState['log'];
 }
+
+export type ClientGameAction = 'ROLL_DICE' | 'BUY_PROPERTY' | 'END_TURN' | 'PAY_BAIL';
+

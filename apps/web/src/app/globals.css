@@ -2275,6 +2275,7 @@ input::placeholder {
   font-size: 0.86rem;
 }
 
+<<<<<<< HEAD
 /* ───── Action dock (under the board) ───── */
 .action-dock {
   position: relative;
@@ -2354,6 +2355,90 @@ input::placeholder {
 @media (max-width: 900px) {
   .action-dock-grid {
     grid-template-columns: repeat(2, 1fr);
+=======
+.backend-banner {
+  border: 1px solid rgba(239, 68, 68, 0.35);
+  border-radius: var(--radius-lg);
+  background: rgba(239, 68, 68, 0.08);
+  padding: 24px;
+  margin-bottom: 24px;
+  display: grid;
+  gap: 16px;
+}
+
+.backend-banner-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.backend-banner-pill {
+  border: 1px solid rgba(239, 68, 68, 0.4);
+  border-radius: 999px;
+  background: rgba(239, 68, 68, 0.2);
+  color: #fca5a5;
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 4px 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.backend-banner h3 {
+  margin: 0;
+  font-size: 1.25rem;
+  color: #fecdd3;
+}
+
+.backend-banner p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.94rem;
+  line-height: 1.5;
+}
+
+.backend-banner code {
+  background: rgba(0, 0, 0, 0.4);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 6px;
+  padding: 2px 6px;
+  color: #f472b6;
+  font-family: var(--font-mono);
+  font-size: 0.85em;
+}
+
+.backend-banner-actions {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.mode-badge-local {
+  border-color: rgba(34, 197, 94, 0.4) !important;
+  background: rgba(34, 197, 94, 0.15) !important;
+  color: #86efac !important;
+}
+
+.mode-badge-online {
+  border-color: rgba(59, 130, 246, 0.4) !important;
+  background: rgba(59, 130, 246, 0.15) !important;
+  color: #93c5fd !important;
+}
+
+.mode-badge-offline {
+  border-color: rgba(239, 68, 68, 0.4) !important;
+  background: rgba(239, 68, 68, 0.15) !important;
+  color: #fca5a5 !important;
+}
+
+
+@media (max-width: 1180px) {
+  .lobby-shell,
+  .experience-grid {
+    grid-template-columns: 1fr;
+>>>>>>> 930110b (fix: add in-browser game engine fallback for Vercel deployment)
   }
 }
 

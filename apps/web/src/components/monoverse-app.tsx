@@ -7,7 +7,11 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { io, type Socket } from 'socket.io-client';
 
 import type { PublicGameDelta } from '../lib/contracts';
+<<<<<<< HEAD
 import { useSound } from '../lib/use-sound';
+=======
+import { LocalSocketAdapter } from '../lib/local-engine';
+>>>>>>> 930110b (fix: add in-browser game engine fallback for Vercel deployment)
 import { useMonoVerseStore } from '../store/monoverse-store';
 import { ActionDock } from './action-dock';
 import { Confetti } from './confetti';
@@ -16,6 +20,7 @@ import { LandingHero } from './landing-hero';
 import { PlayerRoster } from './player-roster';
 import { PropertyDeed } from './property-deed';
 
+<<<<<<< HEAD
 // Build-time env-var. On Vercel set this to your Node + Socket.io backend URL
 // (e.g. a Fly.io / Render / Railway domain) — without it, the Vercel deploy
 // shows the connection-help banner and a CTA to play on the live tunnel.
@@ -53,16 +58,28 @@ function describeBackend(): string {
   if (useSameOrigin) return `${window.location.origin} (same origin)`;
   return url;
 }
+=======
+const DEFAULT_SERVER_URL = process.env.NEXT_PUBLIC_SERVER_URL ?? 'http://localhost:4001';
+
+type EngineMode = 'server' | 'local';
+>>>>>>> 930110b (fix: add in-browser game engine fallback for Vercel deployment)
 
 export function MonoVerseApp() {
-  const socketRef = useRef<Socket | null>(null);
+  const socketRef = useRef<any>(null);
   const rollStartedAtRef = useRef<number | null>(null);
   const rollSettleTimeoutRef = useRef<number | null>(null);
   const settleResetTimeoutRef = useRef<number | null>(null);
   const previousRollRef = useRef<string | undefined>(undefined);
+<<<<<<< HEAD
   const previousTurnPlayerRef = useRef<string | undefined>(undefined);
   const previousWinnerRef = useRef<string | undefined>(undefined);
   const previousJailedRef = useRef<Record<string, boolean>>({});
+=======
+
+  const [mode, setMode] = useState<EngineMode>('server');
+  const [serverUrl, setServerUrl] = useState(DEFAULT_SERVER_URL);
+  const [urlInput, setUrlInput] = useState(DEFAULT_SERVER_URL);
+>>>>>>> 930110b (fix: add in-browser game engine fallback for Vercel deployment)
   const [name, setName] = useState('Talha');
   const [token, setToken] = useState('Comet');
   const [joinCode, setJoinCode] = useState('');
@@ -94,6 +111,7 @@ export function MonoVerseApp() {
   } = useMonoVerseStore();
 
   useEffect(() => {
+<<<<<<< HEAD
     const { url, useSameOrigin } = resolveServerUrl();
     // Allow polling fallback for the cross-origin Cloudflare tunnel; some
     // networks block raw websockets and Socket.io will upgrade transparently.
@@ -103,26 +121,52 @@ export function MonoVerseApp() {
       withCredentials: false
     };
     const socket = useSameOrigin ? io(opts) : io(url, opts);
+=======
+    let active = true;
+    let connectTimer: NodeJS.Timeout | null = null;
+>>>>>>> 930110b (fix: add in-browser game engine fallback for Vercel deployment)
 
-    socketRef.current = socket;
-    setConnection('connecting');
-
-    socket.on('connect', () => {
-      setConnection('online');
+    if (mode === 'local') {
+      const adapter = new LocalSocketAdapter();
+      socketRef.current = adapter;
+      setConnection('local');
       setError(undefined);
+<<<<<<< HEAD
       const storedSessionId = window.localStorage.getItem('monoverse.sessionId');
       const storedRoomCode = window.localStorage.getItem('monoverse.roomCode');
       if (storedSessionId && storedRoomCode) {
         socket.emit('session:resume', { code: storedRoomCode, sessionId: storedSessionId });
       }
     });
+=======
 
-    socket.on('disconnect', () => {
-      setConnection('offline');
-      setIsBusy(false);
-      setIsRolling(false);
-    });
+      adapter.on('connect', () => {
+        if (!active) return;
+        setConnection('local');
+        setError(undefined);
+        const storedSessionId = window.localStorage.getItem('monoverse.sessionId');
+        const storedRoomCode = window.localStorage.getItem('monoverse.roomCode');
+        if (storedSessionId && storedRoomCode) {
+          adapter.emit('session:resume', { code: storedRoomCode, sessionId: storedSessionId });
+        }
+      });
 
+      adapter.on('session:accepted', (payload: { sessionId: string; playerId: string; roomCode: string }) => {
+        if (!active) return;
+        setSession(payload);
+        setError(undefined);
+        window.localStorage.setItem('monoverse.sessionId', payload.sessionId);
+        window.localStorage.setItem('monoverse.roomCode', payload.roomCode);
+      });
+>>>>>>> 930110b (fix: add in-browser game engine fallback for Vercel deployment)
+
+      adapter.on('room:update', (nextRoom) => {
+        if (!active) return;
+        setError(undefined);
+        setRoom(nextRoom);
+      });
+
+<<<<<<< HEAD
     socket.on(
       'session:accepted',
       (payload: { sessionId: string; playerId: string; roomCode: string }) => {
@@ -132,12 +176,46 @@ export function MonoVerseApp() {
         window.localStorage.setItem('monoverse.roomCode', payload.roomCode);
       }
     );
+=======
+      adapter.on('game:snapshot', (payload: { state: PublicGameState; availableActions: string[] }) => {
+        if (!active) return;
+        setError(undefined);
+        setSnapshot(payload.state, payload.availableActions);
+        setIsBusy(false);
+      });
 
-    socket.on('room:update', (nextRoom) => {
+      adapter.on('game:update', (payload: { delta: PublicGameDelta; availableActions: string[] }) => {
+        if (!active) return;
+        setError(undefined);
+        mergeDelta(payload.delta, payload.availableActions);
+        setIsBusy(false);
+      });
+
+      adapter.on('server:error', (payload: { message: string }) => {
+        if (!active) return;
+        setError(payload.message);
+        setIsBusy(false);
+        setIsRolling(false);
+      });
+
+      return () => {
+        active = false;
+        adapter.disconnect();
+        socketRef.current = null;
+      };
+    } else {
+      setConnection('connecting');
       setError(undefined);
-      setRoom(nextRoom);
-    });
+>>>>>>> 930110b (fix: add in-browser game engine fallback for Vercel deployment)
 
+      const socket: Socket = io(serverUrl, {
+        autoConnect: true,
+        transports: ['websocket'],
+        timeout: 4000,
+        reconnectionAttempts: 2
+      });
+
+<<<<<<< HEAD
     socket.on(
       'game:snapshot',
       (payload: { state: PublicGameState; availableActions: string[] }) => {
@@ -155,14 +233,23 @@ export function MonoVerseApp() {
         setIsBusy(false);
       }
     );
+=======
+      socketRef.current = socket;
 
-    socket.on('server:error', (payload: { message: string }) => {
-      setError(payload.message);
-      setIsBusy(false);
-      setIsRolling(false);
-      rollStartedAtRef.current = null;
-    });
+      connectTimer = setTimeout(() => {
+        if (active && !socket.connected) {
+          setConnection('offline');
+        }
+      }, 4500);
+>>>>>>> 930110b (fix: add in-browser game engine fallback for Vercel deployment)
 
+      socket.on('connect', () => {
+        if (!active) return;
+        if (connectTimer) clearTimeout(connectTimer);
+        setConnection('online');
+        setError(undefined);
+
+<<<<<<< HEAD
     return () => {
       if (rollSettleTimeoutRef.current) {
         window.clearTimeout(rollSettleTimeoutRef.current);
@@ -174,6 +261,78 @@ export function MonoVerseApp() {
       socketRef.current = null;
     };
   }, [mergeDelta, setConnection, setError, setRoom, setSession, setSnapshot]);
+=======
+        const storedSessionId = window.localStorage.getItem('monoverse.sessionId');
+        const storedRoomCode = window.localStorage.getItem('monoverse.roomCode');
+
+        if (storedSessionId && storedRoomCode) {
+          socket.emit('session:resume', { code: storedRoomCode, sessionId: storedSessionId });
+        }
+      });
+
+      socket.on('connect_error', () => {
+        if (!active) return;
+        if (connectTimer) clearTimeout(connectTimer);
+        setConnection('offline');
+        setIsBusy(false);
+        setIsRolling(false);
+      });
+
+      socket.on('disconnect', () => {
+        if (!active) return;
+        setConnection('offline');
+        setIsBusy(false);
+        setIsRolling(false);
+      });
+
+      socket.on('session:accepted', (payload: { sessionId: string; playerId: string; roomCode: string }) => {
+        if (!active) return;
+        setSession(payload);
+        setError(undefined);
+        window.localStorage.setItem('monoverse.sessionId', payload.sessionId);
+        window.localStorage.setItem('monoverse.roomCode', payload.roomCode);
+      });
+
+      socket.on('room:update', (nextRoom) => {
+        if (!active) return;
+        setError(undefined);
+        setRoom(nextRoom);
+      });
+
+      socket.on('game:snapshot', (payload: { state: PublicGameState; availableActions: string[] }) => {
+        if (!active) return;
+        setError(undefined);
+        setSnapshot(payload.state, payload.availableActions);
+        setIsBusy(false);
+      });
+
+      socket.on('game:update', (payload: { delta: PublicGameDelta; availableActions: string[] }) => {
+        if (!active) return;
+        setError(undefined);
+        mergeDelta(payload.delta, payload.availableActions);
+        setIsBusy(false);
+      });
+
+      socket.on('server:error', (payload: { message: string }) => {
+        if (!active) return;
+        setError(payload.message);
+        setIsBusy(false);
+        setIsRolling(false);
+        rollStartedAtRef.current = null;
+      });
+
+      return () => {
+        active = false;
+        if (connectTimer) clearTimeout(connectTimer);
+        if (rollSettleTimeoutRef.current) {
+          window.clearTimeout(rollSettleTimeoutRef.current);
+        }
+        socket.disconnect();
+        socketRef.current = null;
+      };
+    }
+  }, [mode, serverUrl, mergeDelta, setConnection, setError, setRoom, setSession, setSnapshot]);
+>>>>>>> 930110b (fix: add in-browser game engine fallback for Vercel deployment)
 
   useEffect(() => {
     if (connection === 'online') {
@@ -271,6 +430,7 @@ export function MonoVerseApp() {
     socketRef.current?.emit(event, payload);
   }
 
+<<<<<<< HEAD
   const emitAction = useCallback(
     (action: 'ROLL_DICE' | 'BUY_PROPERTY' | 'PAY_BAIL' | 'END_TURN') => {
       if (!sessionId) return;
@@ -291,6 +451,39 @@ export function MonoVerseApp() {
     },
     [playSound, sessionId]
   );
+=======
+  function switchToLocalMode() {
+    reset();
+    setMode('local');
+  }
+
+  function startInstantLocalGame() {
+    reset();
+    setMode('local');
+    setTimeout(() => {
+      if (socketRef.current) {
+        socketRef.current.emit('room:create', { name, token });
+        setTimeout(() => {
+          const currentStore = useMonoVerseStore.getState();
+          if (currentStore.sessionId) {
+            socketRef.current.emit('room:add-bot', { sessionId: currentStore.sessionId });
+            setTimeout(() => {
+              const updatedStore = useMonoVerseStore.getState();
+              if (updatedStore.sessionId) {
+                socketRef.current.emit('game:start', { sessionId: updatedStore.sessionId });
+              }
+            }, 100);
+          }
+        }, 100);
+      }
+    }, 150);
+  }
+
+  function emitAction(action: 'ROLL_DICE' | 'BUY_PROPERTY' | 'PAY_BAIL' | 'END_TURN') {
+    if (!sessionId) {
+      return;
+    }
+>>>>>>> 930110b (fix: add in-browser game engine fallback for Vercel deployment)
 
   const handleLeaveRoom = useCallback(() => {
     window.localStorage.removeItem('monoverse.sessionId');
@@ -333,8 +526,22 @@ export function MonoVerseApp() {
     [game?.board, selectedTileId]
   );
 
+  function renderStatusPill() {
+    if (connection === 'local') {
+      return <StatusPill className="mode-badge-local">⚡ In-Browser Engine (Active)</StatusPill>;
+    }
+    if (connection === 'online') {
+      return <StatusPill className="mode-badge-online">🌐 Realtime Server (Online)</StatusPill>;
+    }
+    if (connection === 'connecting') {
+      return <StatusPill>⏳ Connecting...</StatusPill>;
+    }
+    return <StatusPill className="mode-badge-offline">⚠️ Backend Unreachable</StatusPill>;
+  }
+
   return (
     <main className="page-shell">
+<<<<<<< HEAD
       <div className="page-backdrop" aria-hidden>
         <div className="page-backdrop-grid" />
         <div className="page-backdrop-glow page-backdrop-glow-blue" />
@@ -354,9 +561,42 @@ export function MonoVerseApp() {
           className="connection-help"
           role="alert"
           initial={{ opacity: 0, y: -8 }}
+=======
+      {connection === 'offline' && mode === 'server' ? (
+        <motion.div
+          className="backend-banner"
+          initial={{ opacity: 0, y: -12 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.3 }}
         >
+          <div className="backend-banner-head">
+            <span className="backend-banner-pill">Backend Unreachable</span>
+            <h3>Vercel hosts the UI but cannot run the realtime backend</h3>
+          </div>
+          <p>
+            The browser is trying to reach <code>{serverUrl}</code> for live game state. Vercel only runs Next.js (serverless / edge), so it cannot keep a Socket.io connection open.
+            The full game must point at a Node host that supports persistent WebSockets.
+          </p>
+          <div className="backend-banner-actions">
+            <AccentButton onClick={startInstantLocalGame}>
+              ▶ Play Instant Game Now (In-Browser)
+            </AccentButton>
+            <GhostButton onClick={switchToLocalMode}>
+              Switch to In-Browser Engine
+            </GhostButton>
+          </div>
+        </motion.div>
+      ) : null}
+
+      <section className="lobby-shell">
+        <motion.div
+          className="hero-copy"
+          initial={{ opacity: 0, y: 16 }}
+>>>>>>> 930110b (fix: add in-browser game engine fallback for Vercel deployment)
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3 }}
+        >
+<<<<<<< HEAD
           <div className="connection-help-head">
             <span className="connection-help-pill">Backend unreachable</span>
             <h3>
@@ -389,6 +629,110 @@ export function MonoVerseApp() {
                 Vercel project settings to a Node host (Fly.io / Render / Railway)
                 and redeploy.
               </p>
+=======
+          <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
+            {renderStatusPill()}
+            {mode === 'server' && connection === 'online' ? (
+              <GhostButton style={{ padding: '4px 10px', fontSize: '0.78rem' }} onClick={switchToLocalMode}>
+                Switch to In-Browser Mode
+              </GhostButton>
+            ) : null}
+            {mode === 'local' ? (
+              <GhostButton
+                style={{ padding: '4px 10px', fontSize: '0.78rem' }}
+                onClick={() => {
+                  reset();
+                  setMode('server');
+                }}
+              >
+                Switch to WebSocket Server
+              </GhostButton>
+            ) : null}
+          </div>
+
+          <h1>MonoVerse delivers a clean, tactile monopoly arena.</h1>
+          <p>
+            Create a room, line up the table, and play through a full game match with smooth motion, clear turn states, and a clean interface.
+          </p>
+
+          <div className="hero-metrics">
+            <LabelValue label="Room" value={roomCode ?? 'Not joined'} />
+            <LabelValue label="Players" value={room?.playerCount ?? 0} />
+            <LabelValue label="Current turn" value={game?.turn ?? 0} />
+          </div>
+        </motion.div>
+
+        <Surface className="control-panel lobby-card">
+          <div className="panel-head">
+            <div>
+              <span className="eyebrow">Lobby</span>
+              <h2>Set the table</h2>
+            </div>
+            {roomCode ? <StatusPill>{roomCode}</StatusPill> : null}
+          </div>
+
+          <div className="field-grid">
+            <label>
+              <span>Name</span>
+              <input value={name} onChange={(event) => setName(event.target.value)} placeholder="Player name" />
+            </label>
+            <label>
+              <span>Token</span>
+              <input value={token} onChange={(event) => setToken(event.target.value)} placeholder="Comet" />
+            </label>
+          </div>
+
+          <div className="action-row">
+            <AccentButton onClick={() => emit('room:create', { name, token })}>Create room</AccentButton>
+            <GhostButton
+              onClick={() => emit('room:add-bot', { sessionId })}
+              disabled={!sessionId || room?.hostPlayerId !== playerId || room?.status !== 'lobby'}
+            >
+              Add AI
+            </GhostButton>
+          </div>
+
+          <div className="join-row">
+            <input
+              value={joinCode}
+              onChange={(event) => setJoinCode(event.target.value.toUpperCase())}
+              placeholder="ROOM"
+            />
+            <AccentButton onClick={() => emit('room:join', { code: joinCode, name, token })}>Join</AccentButton>
+          </div>
+
+          {!room ? (
+            <div style={{ marginTop: '12px' }}>
+              <GhostButton style={{ width: '100%' }} onClick={startInstantLocalGame}>
+                🎮 Instant Solo Game vs AI
+              </GhostButton>
+            </div>
+          ) : null}
+
+          {room ? (
+            <>
+              <div className="lobby-list-shell">
+                <div className="section-label-row">
+                  <span className="section-label">Players</span>
+                  <span className="section-hint">
+                    {room.players.filter((player) => player.ready).length}/{room.players.length} ready
+                  </span>
+                </div>
+                <PlayerRoster room={room} currentPlayerId={game?.currentPlayerId} viewerId={playerId} compact />
+              </div>
+
+              <div className="lobby-actions">
+                <GhostButton
+                  onClick={() => emit('player:ready', { sessionId, ready: !me?.ready })}
+                  disabled={!sessionId || room.status !== 'lobby'}
+                >
+                  {me?.ready ? 'Unready' : 'Ready up'}
+                </GhostButton>
+                <AccentButton onClick={() => emit('game:start', { sessionId })} disabled={!sessionId || !canStart}>
+                  Start game
+                </AccentButton>
+              </div>
+>>>>>>> 930110b (fix: add in-browser game engine fallback for Vercel deployment)
             </>
           ) : null}
         </motion.aside>
@@ -427,10 +771,38 @@ export function MonoVerseApp() {
               </label>
             </div>
 
+<<<<<<< HEAD
             <div className="action-row">
               <AccentButton onClick={() => emit('room:create', { name, token })}>
                 Create new room
               </AccentButton>
+=======
+            <div className="action-stack">
+              <AccentButton
+                onClick={() => emitAction('ROLL_DICE')}
+                disabled={!sessionId || !availableActions.includes('ROLL_DICE') || isRolling || isBusy}
+              >
+                {isRolling ? 'Rolling…' : 'Roll dice'}
+              </AccentButton>
+              <GhostButton
+                onClick={() => emitAction('BUY_PROPERTY')}
+                disabled={!sessionId || !availableActions.includes('BUY_PROPERTY') || isRolling || isBusy}
+              >
+                Buy property
+              </GhostButton>
+              <GhostButton
+                onClick={() => emitAction('PAY_BAIL')}
+                disabled={!sessionId || !availableActions.includes('PAY_BAIL') || isRolling || isBusy}
+              >
+                Pay bail
+              </GhostButton>
+              <GhostButton
+                onClick={() => emitAction('END_TURN')}
+                disabled={!sessionId || !availableActions.includes('END_TURN') || isRolling || isBusy}
+              >
+                End turn
+              </GhostButton>
+>>>>>>> 930110b (fix: add in-browser game engine fallback for Vercel deployment)
             </div>
 
             <div className="lobby-divider">
