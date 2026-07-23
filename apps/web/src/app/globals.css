@@ -2275,7 +2275,6 @@ input::placeholder {
   font-size: 0.86rem;
 }
 
-<<<<<<< HEAD
 /* ───── Action dock (under the board) ───── */
 .action-dock {
   position: relative;
@@ -2355,7 +2354,9 @@ input::placeholder {
 @media (max-width: 900px) {
   .action-dock-grid {
     grid-template-columns: repeat(2, 1fr);
-=======
+  }
+}
+
 .backend-banner {
   border: 1px solid rgba(239, 68, 68, 0.35);
   border-radius: var(--radius-lg);
@@ -2433,12 +2434,10 @@ input::placeholder {
   color: #fca5a5 !important;
 }
 
-
 @media (max-width: 1180px) {
   .lobby-shell,
   .experience-grid {
     grid-template-columns: 1fr;
->>>>>>> 930110b (fix: add in-browser game engine fallback for Vercel deployment)
   }
 }
 
