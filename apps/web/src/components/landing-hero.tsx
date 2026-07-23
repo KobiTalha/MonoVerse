@@ -6,14 +6,18 @@ export function LandingHero({
   connection,
   soundOn,
   mode,
+  theme = 'cosmic',
   onToggleSound,
-  onToggleMode
+  onToggleMode,
+  onToggleTheme
 }: {
   connection: string;
   soundOn: boolean;
   mode?: 'server' | 'local';
+  theme?: 'cosmic' | 'richup';
   onToggleSound: () => void;
   onToggleMode?: () => void;
+  onToggleTheme?: () => void;
 }) {
   return (
     <header className="landing-hero">
@@ -39,6 +43,18 @@ export function LandingHero({
               : 'Backend unreachable'}
           </span>
 
+          {onToggleTheme ? (
+            <button
+              type="button"
+              className="pill pill-toggle"
+              onClick={onToggleTheme}
+              title="Toggle between Cosmic Dark and Richup Light mode"
+            >
+              <span aria-hidden>{theme === 'richup' ? '☀️' : '🌌'}</span>
+              {theme === 'richup' ? 'Richup Light' : 'Cosmic Dark'}
+            </button>
+          ) : null}
+
           {onToggleMode ? (
             <button
               type="button"
@@ -47,7 +63,7 @@ export function LandingHero({
               title="Click to switch between In-Browser engine and WebSocket server"
             >
               <span aria-hidden>{mode === 'local' ? '⚡' : '🌐'}</span>
-              {mode === 'local' ? 'In-Browser mode' : 'WebSocket server'}
+              {mode === 'local' ? 'In-Browser' : 'Server'}
             </button>
           ) : null}
 

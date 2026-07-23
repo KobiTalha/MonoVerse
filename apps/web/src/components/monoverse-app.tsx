@@ -58,7 +58,30 @@ export function MonoVerseApp() {
     return BUILD_SERVER_URL ? 'server' : 'local';
   });
 
+  const [theme, setTheme] = useState<'cosmic' | 'richup'>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = window.localStorage.getItem('monoverse.theme');
+      if (saved === 'cosmic' || saved === 'richup') return saved;
+    }
+    return 'cosmic';
+  });
+
+  useEffect(() => {
+    if (typeof document !== 'undefined') {
+      document.documentElement.setAttribute('data-theme', theme);
+    }
+  }, [theme]);
+
+  const toggleTheme = useCallback(() => {
+    setTheme((current) => {
+      const next = current === 'cosmic' ? 'richup' : 'cosmic';
+      window.localStorage.setItem('monoverse.theme', next);
+      return next;
+    });
+  }, []);
+
   const [name, setName] = useState('Talha');
+
   const [token, setToken] = useState('Comet');
   const [joinCode, setJoinCode] = useState('');
   const [isRolling, setIsRolling] = useState(false);
@@ -431,8 +454,10 @@ export function MonoVerseApp() {
         connection={connection}
         soundOn={soundOn}
         mode={mode}
+        theme={theme}
         onToggleSound={() => setSoundOn((value) => !value)}
         onToggleMode={toggleEngineMode}
+        onToggleTheme={toggleTheme}
       />
 
       {(connectionStuck || connection === 'offline') && mode === 'server' ? (

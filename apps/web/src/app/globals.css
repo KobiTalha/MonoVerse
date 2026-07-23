@@ -32,6 +32,106 @@
   --font-mono: "SFMono-Regular", "Cascadia Code", ui-monospace, monospace;
 }
 
+[data-theme="richup"] {
+  color-scheme: light;
+  --background: #f1f5f9;
+  --background-soft: #f8fafc;
+  --card: #ffffff;
+  --card-elev: #ffffff;
+  --border: #cbd5e1;
+  --border-soft: #e2e8f0;
+  --text: #0f172a;
+  --muted: #475569;
+  --muted-soft: #64748b;
+  --primary: #4f46e5;
+  --primary-soft: #6366f1;
+  --success: #16a34a;
+  --warning: #d97706;
+  --danger: #e11d48;
+  --neon-cyan: #0284c7;
+  --neon-violet: #7c3aed;
+  --neon-pink: #db2777;
+  --neon-emerald: #059669;
+  --neon-amber: #d97706;
+  --neon-rose: #e11d48;
+  --shadow-lg: 0 20px 45px -15px rgba(15, 23, 42, 0.12);
+  --shadow-md: 0 10px 25px -10px rgba(15, 23, 42, 0.08);
+}
+
+[data-theme="richup"] body {
+  background: #f1f5f9;
+  color: #0f172a;
+}
+
+[data-theme="richup"] .page-backdrop {
+  opacity: 0.15;
+  background: radial-gradient(circle at 50% 0%, rgba(99, 102, 241, 0.1), transparent 70%);
+}
+
+[data-theme="richup"] .landing-hero,
+[data-theme="richup"] .rail-card,
+[data-theme="richup"] .lobby-card,
+[data-theme="richup"] .mv-surface {
+  background: #ffffff;
+  border-color: #cbd5e1;
+  box-shadow: 0 10px 30px -5px rgba(15, 23, 42, 0.06);
+}
+
+[data-theme="richup"] .action-dock {
+  background: linear-gradient(180deg, #ffffff, #f8fafc);
+  border-color: #cbd5e1;
+  box-shadow: 0 12px 32px -10px rgba(15, 23, 42, 0.08);
+}
+
+[data-theme="richup"] .action-button-primary {
+  background: linear-gradient(135deg, #4f46e5 0%, #3b82f6 100%);
+  color: #ffffff;
+}
+
+[data-theme="richup"] .action-button-ghost {
+  background: #ffffff;
+  border-color: #cbd5e1;
+  color: #0f172a;
+}
+
+[data-theme="richup"] input {
+  background: #ffffff;
+  border-color: #cbd5e1;
+  color: #0f172a;
+}
+
+[data-theme="richup"] input::placeholder {
+  color: #94a3b8;
+}
+
+[data-theme="richup"] .pill {
+  background: #ffffff;
+  border-color: #cbd5e1;
+  color: #334155;
+}
+
+[data-theme="richup"] .stage-banner {
+  background: #ffffff;
+  border-color: #cbd5e1;
+  color: #0f172a;
+}
+
+[data-theme="richup"] .board-center {
+  background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+  border-color: #cbd5e1;
+}
+
+[data-theme="richup"] .board-tile {
+  background: #ffffff;
+  border-color: #e2e8f0;
+}
+
+[data-theme="richup"] .board-tile:hover {
+  border-color: #6366f1;
+  background: #f8fafc;
+}
+
+
 * {
   box-sizing: border-box;
 }
